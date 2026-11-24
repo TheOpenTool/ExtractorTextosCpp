@@ -129,6 +129,13 @@ class ArchivoTextos:
             # antes de la linea de cierre del bloque
             b.items.insert(len(b.items) - 1, ('entrada', entrada))
 
+    def renombrar(self, viejo, nuevo):
+        for b in self.bloques:
+            for t, e in b.items:
+                if t == 'entrada' and e.nombre == viejo:
+                    e.nombre = nuevo
+                    e.lineas = None
+
     def quitar(self, nombre):
         for b in self.bloques:
             b.items = [(t, x) for (t, x) in b.items if not (t == 'entrada' and x.nombre == nombre)]

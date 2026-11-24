@@ -23,6 +23,8 @@ Modos:
                         del bloque 0.
     --agregar N T       agrega a mano la entrada N con el texto T en el bloque 0
                         (para los casos que hay que reemplazar a mano).
+    --renombrar V N     renombra la entrada V a N en todos los bloques y, con
+                        --raiz, en el codigo (<tipo>::V -> <tipo>::N).
     --quitar N          quita la entrada N de todos los bloques (con --raiz,
                         se niega si el codigo todavia la usa).
     --verificar         comprueba el archivo de textos (bloques en orden, mismas
@@ -102,7 +104,8 @@ def analizar(ruta, cfg):
             corte = interior.index('##')
             interior, sufijo = interior[:corte], interior[corte:]
         visible = nombres.decodificar(interior)
-        if nombres.letras(visible) < minimo or any(r.search(visible) for r in excluir):
+        # Las letras de un especificador (%zu, %s) no cuentan como texto.
+        if nombres.letras(nombres.ESPECIFICADOR.sub('', visible)) < minimo or any(r.search(visible) for r in excluir):
             continue
         sin_args = (tipo == 'formato' and len(args) == k + 1)
         if sin_args:
@@ -318,6 +321,8 @@ def main():
     ap.add_argument('--verificar', action='store_true')
     ap.add_argument('--agregar', nargs=2, metavar=('NOMBRE', 'TEXTO'),
                     help='agrega una entrada a mano (texto del bloque 0, el resto vacio)')
+    ap.add_argument('--renombrar', nargs=2, metavar=('VIEJO', 'NUEVO'),
+                    help='renombra la entrada en todos los bloques y en el codigo de --raiz')
     ap.add_argument('--quitar', metavar='NOMBRE',
                     help='quita la entrada de todos los bloques (falla si el codigo la usa, con --raiz)')
     ap.add_argument('--raiz', help='carpeta de codigo para los avisos y la verificacion')
@@ -336,6 +341,28 @@ def main():
             print('ERROR:', e)
         textos.escribir()
         return modo_verificar(args, cfg) or (1 if errores else 0)
+    if args.renombrar:
+        viejo, nuevo = args.renombrar
+        textos = ArchivoTextos(cfg['archivo_textos'], cfg['textos'])
+        if viejo not in textos.nombres():
+            raise SystemExit('no existe %s' % viejo)
+        if nuevo in textos.nombres():
+            raise SystemExit('ya existe %s' % nuevo)
+        textos.renombrar(viejo, nuevo)
+        textos.escribir()
+        if args.raiz:
+            tipo = re.escape(cfg.get('tipo_texto', 'Texto'))
+            uso = re.compile(r'\b(' + tipo + r'::)' + re.escape(viejo) + r'\b')
+            for base, _, archivos in os.walk(args.raiz):
+                for a in archivos:
+                    if a.endswith(('.cpp', '.h', '.hpp', '.cc')):
+                        ruta = os.path.join(base, a)
+                        src = open(ruta, encoding='utf-8', errors='surrogateescape').read()
+                        nuevo_src = uso.sub(lambda m: m.group(1) + nuevo, src)
+                        if nuevo_src != src:
+                            open(ruta, 'w', encoding='utf-8', errors='surrogateescape').write(nuevo_src)
+                            print('renombrado en', ruta)
+        return modo_verificar(args, cfg)
     if args.quitar:
         if args.raiz:
             uso = re.compile(r'\b' + re.escape(cfg.get('tipo_texto', 'Texto')) + '::' + args.quitar + r'\b')
