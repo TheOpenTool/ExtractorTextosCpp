@@ -111,7 +111,9 @@ class ArchivoTextos:
     def pendientes(self, numero):
         bloque = self._bloque(numero)
         base = {e.nombre: e.interior for e in self.base().entradas()}
-        return {e.nombre: base.get(e.nombre, '') for e in bloque.entradas() if e.interior == ''}
+        # Texto legible (sin escapes de C), el mismo formato que espera traducir().
+        return {e.nombre: nombres.decodificar(base.get(e.nombre, ''))
+                for e in bloque.entradas() if e.interior == ''}
 
     def _bloque(self, numero):
         for b in self.bloques:
@@ -126,6 +128,10 @@ class ArchivoTextos:
             entrada = Entrada(nombre, [texto])
             # antes de la linea de cierre del bloque
             b.items.insert(len(b.items) - 1, ('entrada', entrada))
+
+    def quitar(self, nombre):
+        for b in self.bloques:
+            b.items = [(t, x) for (t, x) in b.items if not (t == 'entrada' and x.nombre == nombre)]
 
     def traducir(self, numero, traducciones):
         """Carga textos en el bloque 'numero'. Devuelve la lista de errores."""

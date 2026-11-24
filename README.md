@@ -52,6 +52,9 @@ python3 extraer_textos.py --config cfg.json --pendientes 1 > pendientes.json
 # Cargar las traducciones (JSON {nombre: texto}) en el bloque 1
 python3 extraer_textos.py --config cfg.json --traducciones en.json --bloque 1
 
+# Agregar a mano una entrada (para lo que hay que reemplazar a mano)
+python3 extraer_textos.py --config cfg.json --agregar CopiarAqui "Copiar aqui"
+
 # Comprobar el archivo de textos y que todo Texto::X del código exista
 python3 extraer_textos.py --config cfg.json --verificar --raiz src
 ```
@@ -65,6 +68,7 @@ Ver `ejemplos/config_imgui.json`. Claves:
 | `archivo_textos` | Ruta del archivo de textos posicional |
 | `cabecera` | Header a incluir en los archivos modificados (ruta relativa calculada sola) |
 | `declaracion` | Línea a agregar tras los includes si falta (p. ej. `using Loc::Texto;`) |
+| `calificador_cabeceras` | En cabeceras no se agrega `declaracion`: el tipo de texto se califica con esto (p. ej. `Loc::`) |
 | `tipo_texto` | Nombre del enum de textos, para `--verificar` |
 | `minimo_letras` | Un literal con menos letras visibles no se extrae (`"X"`, `"%d"`, `"##id"`) |
 | `excluir` | Regex de textos visibles que no se extraen |

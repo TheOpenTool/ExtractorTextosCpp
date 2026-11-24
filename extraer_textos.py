@@ -21,6 +21,10 @@ Modos:
     --traducciones F    carga un JSON {nombre: texto} en el bloque --bloque N.
                         Rechaza un texto cuyos % de formato no coinciden con los
                         del bloque 0.
+    --agregar N T       agrega a mano la entrada N con el texto T en el bloque 0
+                        (para los casos que hay que reemplazar a mano).
+    --quitar N          quita la entrada N de todos los bloques (con --raiz,
+                        se niega si el codigo todavia la usa).
     --verificar         comprueba el archivo de textos (bloques en orden, mismas
                         entradas en el mismo orden, nombres unicos, % iguales) y,
                         con --raiz, que todo <tipo>::<Nombre> usado en el codigo
@@ -136,6 +140,24 @@ def asignar_nombres(hallazgos, textos, cfg, nuevos):
         h.nombre = nombre
 
 
+CABECERAS = ('.h', '.hpp', '.hh', '.hxx')
+
+
+def es_cabecera(ruta):
+    return ruta.endswith(CABECERAS)
+
+
+def expresion_en(ruta, h, cfg):
+    """En una cabecera no se agrega la declaracion (using...): se califica el
+    tipo de texto con 'calificador_cabeceras'."""
+    expr = expresion(h, cfg)
+    calificador = cfg.get('calificador_cabeceras')
+    if calificador and es_cabecera(ruta):
+        tipo = cfg.get('tipo_texto', 'Texto') + '::'
+        expr = re.sub(r'(?<![\w:])' + re.escape(tipo), calificador + tipo, expr)
+    return expr
+
+
 def expresion(h, cfg):
     p = cfg['plantillas']
     if h.tipo == 'etiqueta':
@@ -150,20 +172,23 @@ def expresion(h, cfg):
             .replace('{original}', h.original))
 
 
-def partir_si_larga(src, a, b, expr, cfg):
-    """Si la linea queda mas larga que 'ancho_codigo', pasa la expresion a la
-    linea siguiente con 8 espacios mas de sangria que la linea original."""
+def reemplazar(src, a, b, expr, cfg):
+    """Reemplaza src[a:b] por expr. Con 'ancho_codigo', si la linea queda mas
+    larga que ese ancho, la expresion pasa a la linea siguiente (8 espacios mas
+    de sangria) y, si aun asi no entra, lo que sigue tras la coma tambien."""
     ancho = cfg.get('ancho_codigo')
-    if not ancho:
-        return expr
     ini = src.rfind('\n', 0, a) + 1
     fin = src.find('\n', b)
     fin = len(src) if fin < 0 else fin
-    linea = src[ini:a] + expr + src[b:fin]
-    if len(linea) <= ancho or not src[ini:a].strip():
-        return expr
-    sangria = len(src[ini:a]) - len(src[ini:a].lstrip())
-    return '\n' + ' ' * (sangria + 8) + expr
+    antes, resto = src[ini:a], src[b:fin]
+    if not ancho or len(antes + expr + resto) <= ancho or not antes.strip():
+        return src[:a] + expr + src[b:]
+    sangria = ' ' * (len(antes) - len(antes.lstrip()) + 8)
+    nuevo = '\n' + sangria + expr
+    if len(sangria + expr + resto) > ancho and resto.startswith(','):
+        nuevo += ',\n' + sangria + resto[1:].lstrip()
+        return src[:a] + nuevo + src[fin:]
+    return src[:a] + nuevo + src[b:]
 
 
 def asegurar_include(src, ruta, cfg):
@@ -175,6 +200,8 @@ def asegurar_include(src, ruta, cfg):
         if os.path.basename(cabecera) not in src:
             agregado.append('#include "%s"' % rel)
     declaracion = cfg.get('declaracion')
+    if cfg.get('calificador_cabeceras') and es_cabecera(ruta):
+        declaracion = None
     if declaracion and declaracion not in src:
         agregado.append(declaracion)
     if not agregado:
@@ -198,8 +225,10 @@ def literales_en_otros(raiz, interiores, procesados):
             if not a.endswith(('.cpp', '.h', '.hpp', '.cc')) or os.path.abspath(ruta) in procesados:
                 continue
             src = open(ruta, encoding='utf-8', errors='ignore').read()
+            _, lits = lexico.escanear(src)
+            presentes = {src[a + 1:b - 1] for (a, b) in lits}
             for t in interiores:
-                if '"%s"' % t in src:
+                if t in presentes:
                     avisos.append('%s: el literal "%s" sigue escrito ahi' % (ruta, t))
     return avisos
 
@@ -237,7 +266,7 @@ def modo_extraer(args, cfg):
             continue
         for h in sorted(hallazgos, key=lambda x: x.span[0], reverse=True):
             a, b = h.span
-            src = src[:a] + partir_si_larga(src, a, b, expresion(h, cfg), cfg) + src[b:]
+            src = reemplazar(src, a, b, expresion_en(ruta, h, cfg), cfg)
         src = asegurar_include(src, ruta, cfg)
         open(ruta, 'w', encoding='utf-8').write(src)
     errores = ArchivoTextos(cfg['archivo_textos'], cfg['textos']).verificar()
@@ -287,6 +316,10 @@ def main():
     ap.add_argument('--traducciones')
     ap.add_argument('--bloque', type=int)
     ap.add_argument('--verificar', action='store_true')
+    ap.add_argument('--agregar', nargs=2, metavar=('NOMBRE', 'TEXTO'),
+                    help='agrega una entrada a mano (texto del bloque 0, el resto vacio)')
+    ap.add_argument('--quitar', metavar='NOMBRE',
+                    help='quita la entrada de todos los bloques (falla si el codigo la usa, con --raiz)')
     ap.add_argument('--raiz', help='carpeta de codigo para los avisos y la verificacion')
     args = ap.parse_args()
     cfg = cargar_config(args.config)
@@ -303,6 +336,27 @@ def main():
             print('ERROR:', e)
         textos.escribir()
         return modo_verificar(args, cfg) or (1 if errores else 0)
+    if args.quitar:
+        if args.raiz:
+            uso = re.compile(r'\b' + re.escape(cfg.get('tipo_texto', 'Texto')) + '::' + args.quitar + r'\b')
+            for base, _, archivos in os.walk(args.raiz):
+                for a in archivos:
+                    if a.endswith(('.cpp', '.h', '.hpp', '.cc')):
+                        ruta = os.path.join(base, a)
+                        if uso.search(open(ruta, encoding='utf-8', errors='ignore').read()):
+                            raise SystemExit('%s todavia se usa en %s' % (args.quitar, ruta))
+        textos = ArchivoTextos(cfg['archivo_textos'], cfg['textos'])
+        textos.quitar(args.quitar)
+        textos.escribir()
+        return modo_verificar(args, cfg)
+    if args.agregar:
+        textos = ArchivoTextos(cfg['archivo_textos'], cfg['textos'])
+        nombre, texto = args.agregar
+        if nombre in textos.nombres():
+            raise SystemExit('ya existe %s' % nombre)
+        textos.agregar(nombre, texto.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n'))
+        textos.escribir()
+        return modo_verificar(args, cfg)
     if args.verificar:
         return modo_verificar(args, cfg)
     if not args.archivos:
