@@ -68,6 +68,7 @@ Ver `ejemplos/config_imgui.json`. Claves:
 | `tipo_texto` | Nombre del enum de textos, para `--verificar` |
 | `minimo_letras` | Un literal con menos letras visibles no se extrae (`"X"`, `"%d"`, `"##id"`) |
 | `excluir` | Regex de textos visibles que no se extraen |
+| `ancho_codigo` | Largo máximo de línea: si el reemplazo lo supera, la expresión pasa a la línea siguiente |
 | `max_palabras_nombre` | Palabras del texto que forman el nombre de la entrada |
 | `textos` | Formato del archivo: `prefijo_entrada`, regex `inicio_bloque` (grupo 1 = número), regex `fin_bloque`, `ancho_maximo` |
 | `funciones` | Función → `{"tipo": ..., "arg": índice}` (arg 0 por defecto) |

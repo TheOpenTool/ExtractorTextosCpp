@@ -26,6 +26,9 @@ Modos:
                         con --raiz, que todo <tipo>::<Nombre> usado en el codigo
                         exista.
 
+Con "ancho_codigo" en la configuracion, una linea que el reemplazo deja mas
+larga que ese ancho pasa la expresion a la linea siguiente.
+
 Rutas relativas de la configuracion: se resuelven desde el directorio actual.
 """
 import argparse
@@ -147,6 +150,22 @@ def expresion(h, cfg):
             .replace('{original}', h.original))
 
 
+def partir_si_larga(src, a, b, expr, cfg):
+    """Si la linea queda mas larga que 'ancho_codigo', pasa la expresion a la
+    linea siguiente con 8 espacios mas de sangria que la linea original."""
+    ancho = cfg.get('ancho_codigo')
+    if not ancho:
+        return expr
+    ini = src.rfind('\n', 0, a) + 1
+    fin = src.find('\n', b)
+    fin = len(src) if fin < 0 else fin
+    linea = src[ini:a] + expr + src[b:fin]
+    if len(linea) <= ancho or not src[ini:a].strip():
+        return expr
+    sangria = len(src[ini:a]) - len(src[ini:a].lstrip())
+    return '\n' + ' ' * (sangria + 8) + expr
+
+
 def asegurar_include(src, ruta, cfg):
     cabecera = cfg.get('cabecera')
     agregado = []
@@ -218,7 +237,7 @@ def modo_extraer(args, cfg):
             continue
         for h in sorted(hallazgos, key=lambda x: x.span[0], reverse=True):
             a, b = h.span
-            src = src[:a] + expresion(h, cfg) + src[b:]
+            src = src[:a] + partir_si_larga(src, a, b, expresion(h, cfg), cfg) + src[b:]
         src = asegurar_include(src, ruta, cfg)
         open(ruta, 'w', encoding='utf-8').write(src)
     errores = ArchivoTextos(cfg['archivo_textos'], cfg['textos']).verificar()
