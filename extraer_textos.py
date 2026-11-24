@@ -87,7 +87,10 @@ def analizar(ruta, cfg):
         spans = lexico.literales_del_argumento(mascara, literales, a, b)
         linea = lexico.numero_de_linea(src, inicio)
         if spans is None:
-            if lexico.contiene_literal(literales, a, b):
+            # Un argumento que ya usa el tipo de texto esta convertido: el
+            # literal que le queda es un ID ("###...") y no hay que revisarlo.
+            ya_convertido = (cfg.get('tipo_texto', 'Texto') + '::') in mascara[a:b]
+            if lexico.contiene_literal(literales, a, b) and not ya_convertido:
                 revisar.append((linea, funcion, src[a:b].strip()))
             continue
         if any(src[x - 2:x] in ('u8', 'L"') or src[x - 1] in 'uUL' for (x, _) in spans):
@@ -128,9 +131,11 @@ def asignar_nombres(hallazgos, textos, cfg, nuevos):
     for h in hallazgos:
         if h.tipo == 'id':
             continue
-        existente = textos.nombre_por_interior(h.interior)
+        flexible = cfg.get('reutilizar_sin_tildes', False)
+        existente = textos.nombre_por_interior(h.interior, flexible)
         if existente is None:
-            existente = next((n for (n, t) in nuevos if t == h.interior), None)
+            existente = next((n for (n, t) in nuevos if t == h.interior or (
+                flexible and nombres.clave_flexible(t) == nombres.clave_flexible(h.interior))), None)
         if existente:
             h.nombre = existente
             continue

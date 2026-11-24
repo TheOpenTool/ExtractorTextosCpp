@@ -36,3 +36,11 @@ def nombre_para(texto, max_palabras):
     if nombre[0].isdigit():
         nombre = 'N' + nombre
     return nombre
+
+
+def clave_flexible(interior):
+    """Forma para comparar textos sin importar tildes, mayusculas ni espacios
+    repetidos: "Vida minima" y "Vida m\u00ednima" son el mismo texto."""
+    texto = unicodedata.normalize('NFKD', decodificar(interior))
+    texto = ''.join(c for c in texto if not unicodedata.combining(c))
+    return ' '.join(texto.lower().split())

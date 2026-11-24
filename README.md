@@ -55,6 +55,9 @@ python3 extraer_textos.py --config cfg.json --traducciones en.json --bloque 1
 # Agregar a mano una entrada (para lo que hay que reemplazar a mano)
 python3 extraer_textos.py --config cfg.json --agregar CopiarAqui "Copiar aqui"
 
+# Renombrar una entrada (archivo de textos y código)
+python3 extraer_textos.py --config cfg.json --renombrar Tipo2 TipoDeLuz --raiz src
+
 # Comprobar el archivo de textos y que todo Texto::X del código exista
 python3 extraer_textos.py --config cfg.json --verificar --raiz src
 ```
@@ -73,6 +76,7 @@ Ver `ejemplos/config_imgui.json`. Claves:
 | `minimo_letras` | Un literal con menos letras visibles no se extrae (`"X"`, `"%d"`, `"##id"`) |
 | `excluir` | Regex de textos visibles que no se extraen |
 | `ancho_codigo` | Largo máximo de línea: si el reemplazo lo supera, la expresión pasa a la línea siguiente |
+| `reutilizar_sin_tildes` | Reutiliza una entrada existente aunque difiera en tildes, mayúsculas o espacios (útil tras normalizar el bloque 0) |
 | `max_palabras_nombre` | Palabras del texto que forman el nombre de la entrada |
 | `textos` | Formato del archivo: `prefijo_entrada`, regex `inicio_bloque` (grupo 1 = número), regex `fin_bloque`, `ancho_maximo` |
 | `funciones` | Función → `{"tipo": ..., "arg": índice}` (arg 0 por defecto) |

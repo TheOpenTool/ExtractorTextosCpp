@@ -6,6 +6,7 @@
   "tipo_texto": "Texto",
   "minimo_letras": 2,
   "max_palabras_nombre": 5,
+  "reutilizar_sin_tildes": true,
   "ancho_codigo": 120,
   "excluir": ["^[XYZWxyzw]:?$", "^(RGB|RGBA|HDR|FPS|ID|UV|URL|OK)$", "^[^ ]+ \\(\\.[a-z]+\\)$"],
   "textos": {

@@ -102,10 +102,15 @@ class ArchivoTextos:
     def nombres(self):
         return [e.nombre for e in self.base().entradas()]
 
-    def nombre_por_interior(self, interior):
+    def nombre_por_interior(self, interior, flexible=False):
         for e in self.base().entradas():
             if e.interior == interior:
                 return e.nombre
+        if flexible:
+            buscado = nombres.clave_flexible(interior)
+            for e in self.base().entradas():
+                if nombres.clave_flexible(e.interior) == buscado:
+                    return e.nombre
         return None
 
     def pendientes(self, numero):
